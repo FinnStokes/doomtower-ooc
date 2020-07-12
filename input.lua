@@ -5,6 +5,14 @@ M.default_bindings = {
   key = {
     escape = "exit",
     f11 = "fullscreen",
+    w = "up",
+    s = "down",
+    a = "left",
+    d = "right",
+    up = "up",
+    down = "down",
+    left = "left",
+    right = "right",
   },
 }
 

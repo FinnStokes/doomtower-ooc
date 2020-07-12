@@ -1,13 +1,49 @@
-local util = require("util")
 local data = require("data")
+local elements = require("elements")
+local util = require("util")
 
 local M = {}
 
 M.rooms = {
-  {shape = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 1}, {0, 2}, {3, 2}}, img = data.image("life")},
-  {shape = {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 0}, {3, 0}, {4, 0}, {2, 1}, {3, 1}, {4, 1}, {2, 2}, {3, 2}, {4, 2}}, img = data.image("death-ray")},
-  {shape = {{1, 0}, {1, 1}, {1, 2}, {0, 3}, {1, 3}, {2, 3}, {0, 4}, {1, 4}, {2, 4}}, img = data.image("weather-control")},
-  {shape = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}}, img = data.image("shark-tank")},
+  {
+    shape = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 1}, {0, 2}, {3, 2}},
+    img = data.image("life"),
+    action_rate = 0.5,
+    actions = {
+      {consumes = {elements.death, elements.lightning}, produces = {elements.zombie}},
+      {produces = {elements.death}, probability = 20},
+    },
+  },
+  {
+    shape = {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 0}, {3, 0}, {4, 0}, {2, 1}, {3, 1}, {4, 1}, {2, 2}, {3, 2}, {4, 2}},
+    img = data.image("death-ray"),
+    action_rate = 0.2,
+    actions = {
+      {consumes = {elements.shark}, produces = {elements.death}},
+      {consumes = {elements.zombie}, produces = {elements.death}},
+      {consumes = {elements.laser_shark}, produces = {elements.death}},
+      {consumes = {elements.cyborg}, produces = {elements.death}},
+      {consumes = {elements.lightning}, produces = {elements.laser}},
+      {produces = {elements.fire}, probability = 50},
+    },
+  },
+  {
+    shape = {{1, 0}, {1, 1}, {1, 2}, {0, 3}, {1, 3}, {2, 3}, {0, 4}, {1, 4}, {2, 4}},
+    img = data.image("weather-control"),
+    action_rate = 0.3,
+    actions = {
+      {produces = {elements.lightning}}
+    },
+  },
+  {
+    shape = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}},
+    img = data.image("shark-tank"),
+    action_rate = 0.2,
+    actions = {
+      {produces = {elements.shark}, probability = 50},
+      {produces = {elements.water}},
+    },
+  },
 }
 
 M.TILE_SIZE = 32
@@ -111,7 +147,7 @@ M.add_room = function(building)
         for id, r in pairs(building.rooms) do
           rooms[id] = r
         end
-        rooms[id] = {room = room, pos = pos}
+        rooms[id] = {room = room, pos = pos, elements = {}}
         return util.evolve(building, {
           rooms = rooms,
           grid = grid_add_room(building.grid, id, room, pos),
@@ -132,15 +168,12 @@ M.new = function()
     pipes = {},
     crossings = {},
     grid = grid_add_room({}, entrance, entrance_room, {x = 0, y = 0}),
+    overflow = false,
+    produced = {},
   }
 
-  building.rooms[entrance] = {room=entrance_room, pos={x = 0, y = 0}}
+  building.rooms[entrance] = {room=entrance_room, pos={x = 0, y = 0}, elements={elements.fire}} -- todo fixme
 
-  building = M.add_room(building)
-  building = M.add_room(building)
-  building = M.add_room(building)
-  building = M.add_room(building)
-  building = M.add_room(building)
   building = M.add_room(building)
 
   return building
@@ -415,10 +448,110 @@ M.render = function(building)
       if y > top then top = y end
     end
     love.graphics.draw(r.room.img, left * M.TILE_SIZE, (top + 1) * M.TILE_SIZE, 0, 1, -1)
+    for n, el in ipairs(r.elements) do
+      if n <= #r.room.shape then
+        local tile = r.room.shape[n]
+        local x = r.pos.x + tile[1]
+        local y = r.pos.y + tile[2]
+        love.graphics.draw(el.img, x * M.TILE_SIZE, (y + 1) * M.TILE_SIZE, 0, 1, -1)
+      end
+    end
   end
   for _, p in pairs(building.pipes) do
     M.render_pipe(building, p.shape)
   end
+end
+
+local update_pipe = function(pipe, from, to, dt)
+  if not util.integrated_prob(1.0, dt) then
+    return pipe, from, to
+  end
+
+  if #from.elements == 0 then
+    return pipe, from, to
+  end
+
+  local id = math.random(#from.elements)
+  local el = from.elements[id]
+  to = util.evolve(to, {
+    elements = util.append(to.elements, el),
+  })
+
+  local els = {}
+  for k, v in ipairs(from.elements) do
+    if k ~= id then
+      table.insert(els, v)
+    end
+  end
+
+  from = util.evolve(from, {
+    elements = els,
+  })
+
+  return pipe, from, to
+end
+
+local update_room = function(room, dt)
+  local els = room.elements
+  if util.integrated_prob(room.room.action_rate, dt) then
+    els = elements.act(els, room.room.actions)
+  end
+  els, produced = elements.react(els)
+  local overflow = nil
+  if #els > #room.room.shape then
+    overflow = {room = room, produced = produced}
+  end
+  return util.evolve(room, {elements = els}), produced, overflow
+end
+
+M.update = function(building, dt)
+  local rooms = building.rooms
+
+  local pipes = {}
+  for id in pairs(building.pipes) do
+    table.insert(pipes, id)
+  end
+
+  local updated_rooms = {}
+  for id in pairs(building.rooms) do
+    updated_rooms[id] = building.rooms[id]
+  end
+
+  local updated_pipes = {}
+  while #pipes > 0 do
+    local n = math.random(#pipes)
+    local id = pipes[n]
+    local pipe = building.pipes[pipes[n]]
+    updated_pipes[pipes[n]], updated_rooms[pipe.from], updated_rooms[pipe.to] = update_pipe(pipe, updated_rooms[pipe.from], updated_rooms[pipe.to], dt)
+    table.remove(pipes, n)
+  end
+
+  local produced = util.clone(building.produced)
+  local overflow = building.overflow
+
+  for id in pairs(building.rooms) do
+    local local_produced, local_overflow
+    updated_rooms[id], local_produced, local_overflow = update_room(updated_rooms[id], dt)
+    if local_overflow ~= nil then
+      overflow = local_overflow
+    end
+    for _, el in ipairs(local_produced) do
+      table.insert(produced, el)
+    end
+  end
+
+  local new = util.evolve(building, {
+    produced = produced,
+    overflow = overflow,
+    rooms = updated_rooms,
+    pipes = updated_pipes,
+  })
+
+  if util.integrated_prob(0.02, dt) then
+    new = M.add_room(new)
+  end
+
+  return new
 end
 
 return M

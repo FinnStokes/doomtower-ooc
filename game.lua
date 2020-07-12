@@ -12,11 +12,13 @@ local transform = function(game_x, game_y, screen_width, screen_height)
   transform:scale(1 / love.graphics.getDPIScale())
   transform:translate(screen_width / 2, screen_height / 2)
   transform:scale(scale, -scale)
-  transform:translate(0.0, -80.0)
+  transform:translate(game_x, -game_y)
 
   return {
     x = game_x,
     y = game_y,
+    w = screen_width,
+    h = screen_height,
     transform = transform,
   }
 end
@@ -27,6 +29,8 @@ M.new = function(w, h)
     building = building.new(),
     pipe_placer = {},
     placing = false,
+    x_speed = 0,
+    y_speed = 0,
     cursor = {x = 0, y = 0},
     paused = false,
   }
@@ -35,7 +39,16 @@ M.new = function(w, h)
 end
 
 M.update = function(state, dt)
-  return state
+  local t = state.transform
+  print(state.x_speed, state.y_speed)
+  if state.y_speed ~= 0 or state.x_speed ~= 0 then
+    print(t.x + dt * 100 * state.x_speed, t.y + dt * 100 * state.y_speed)
+    t = transform(t.x - dt * 100 * state.x_speed, t.y - dt * 100 * state.y_speed, t.w, t.h)
+  end
+  return util.evolve(state, {
+    building = building.update(state.building, dt),
+    transform = t,
+  })
 end
 
 M.press = function(state, action)
@@ -68,13 +81,31 @@ M.press = function(state, action)
         return state
       end
     end
+  elseif action == "up" then
+    return util.evolve(state, {y_speed = 1})
+  elseif action == "down" then
+    return util.evolve(state, {y_speed = -1})
+  elseif action == "left" then
+    return util.evolve(state, {x_speed = -1})
+  elseif action == "right" then
+    return util.evolve(state, {x_speed = 1})
   else
     return state
   end
 end
 
 M.release = function(state, action)
-  return state
+  if action == "up" and state.y_speed == 1 then
+    return util.evolve(state, {y_speed = 0})
+  elseif action == "down" and state.y_speed == -1 then
+    return util.evolve(state, {y_speed = -0})
+  elseif action == "left" and state.x_speed == -1 then
+    return util.evolve(state, {x_speed = -0})
+  elseif action == "right" and state.x_speed == 1 then
+    return util.evolve(state, {x_speed = 0})
+  else
+    return state
+  end
 end
 
 M.cursor_to = function(state, pos)
