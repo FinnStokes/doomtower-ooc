@@ -4,10 +4,10 @@ local data = require("data")
 local M = {}
 
 M.rooms = {
-  {shape = {{0, 0}, {1, 0}, {2, 0}, {3, 0}}},
-  {shape = {{0, 0}, {1, 0}, {1, 1}}},
-  {shape = {{0, 0}, {0, 1}, {-1, 1}, {1, 1}}},
-  {shape = {{0, 0}, {1, 0}, {1, 1}, {0, 1}}},
+  {shape = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 1}, {0, 2}, {3, 2}}, img = data.image("life")},
+  {shape = {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 0}, {3, 0}, {4, 0}, {2, 1}, {3, 1}, {4, 1}, {2, 2}, {3, 2}, {4, 2}}, img = data.image("death-ray")},
+  {shape = {{1, 0}, {1, 1}, {1, 2}, {0, 3}, {1, 3}, {2, 3}, {0, 4}, {1, 4}, {2, 4}}, img = data.image("weather-control")},
+  {shape = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}}, img = data.image("shark-tank")},
 }
 
 M.TILE_SIZE = 32
@@ -125,14 +125,16 @@ end
 
 M.new = function()
   local entrance = util.next_id()
+  local entrance_room = M.rooms[math.random(#M.rooms)]
+
   local building = {
     rooms = {},
     pipes = {},
     crossings = {},
-    grid = grid_add_room({}, entrance, M.rooms[1], {x = 0, y = 0}),
+    grid = grid_add_room({}, entrance, entrance_room, {x = 0, y = 0}),
   }
 
-  building.rooms[entrance] = {room=M.rooms[1], pos={x = 0, y = 0}}
+  building.rooms[entrance] = {room=entrance_room, pos={x = 0, y = 0}}
 
   building = M.add_room(building)
   building = M.add_room(building)
@@ -369,9 +371,9 @@ local dir_lbl = function(x, y)
     return "l"
   elseif x < 0 and y == 0 then
     return "r"
-  elseif x == 0 and y > 0 then
-    return "u"
   elseif x == 0 and y < 0 then
+    return "u"
+  elseif x == 0 and y > 0 then
     return "d"
   end
 end
@@ -390,14 +392,14 @@ M.render_pipe = function(building, tiles, ghost)
         dir = dir_lbl(tiles[i].x - tiles[i-1].x, tiles[i].y - tiles[i-1].y)
         dirs[dir] = dir
         local img = data.image("pipe-"..dirs.l..dirs.r..dirs.u..dirs.d..suffix)
-        love.graphics.draw(img, x, y)
+        love.graphics.draw(img, x, y + M.TILE_SIZE, 0, 1, -1)
       elseif not M.is_room(building, M.get_tile(building, tiles[i].x, tiles[i].y)) then
         local dir = dir_lbl(tiles[i].x - tiles[i-1].x, tiles[i].y - tiles[i-1].y)
         dirs[dir] = dir
         dir = dir_lbl(tiles[i-1].x - tiles[i].x, tiles[i-1].y - tiles[i].y)
         dirs[dir] = dir
         local img = data.image("pipe-"..dirs.l..dirs.r..dirs.u..dirs.d..suffix)
-        love.graphics.draw(img, x, y)
+        love.graphics.draw(img, x, y + M.TILE_SIZE, 0, 1, -1)
       end
     end
   end
@@ -405,11 +407,14 @@ end
 
 M.render = function(building)
   for _, r in pairs(building.rooms) do
+    local left, top = 1000, 0
     for _, tile in ipairs(r.room.shape) do
       local x = r.pos.x + tile[1]
       local y = r.pos.y + tile[2]
-      love.graphics.rectangle("fill", x * M.TILE_SIZE, y * M.TILE_SIZE, M.TILE_SIZE, M.TILE_SIZE)
+      if x < left then left = x end
+      if y > top then top = y end
     end
+    love.graphics.draw(r.room.img, left * M.TILE_SIZE, (top + 1) * M.TILE_SIZE, 0, 1, -1)
   end
   for _, p in pairs(building.pipes) do
     M.render_pipe(building, p.shape)
