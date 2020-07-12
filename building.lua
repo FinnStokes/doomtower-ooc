@@ -127,6 +127,7 @@ M.new = function()
   local building = {
     rooms = {},
     pipes = {},
+    crossings = {},
     grid = grid_add_room({}, entrance, M.rooms[1], {x = 0, y = 0}),
   }
 
@@ -150,11 +151,50 @@ M.is_pipe = function(building, id)
   return building.pipes[id] ~= nil
 end
 
+M.is_crossing = function(building, id)
+  return building.crossing[id] ~= nil
+end
+
 M.pipe_allowed = function(building, shape)
   for i, tile in ipairs(shape) do
-    if i > 1 and i < #shape then
-      if M.get_tile(building, tile.x, tile.y) ~= nil then
-        return false
+    if i > 1 then
+      local id = M.get_tile(building, tile.x, tile.y)
+      if id ~= nil and (i < #shape or not M.is_room(building, id)) then
+        if not M.is_pipe(building, id) then
+          return false
+        end
+        local mydir
+        if i < #shape then
+          local dxa = shape[i-1].x - shape[i].x
+          local dya = shape[i-1].y - shape[i].y
+          local dxb = shape[i].x - shape[i+1].x
+          local dyb = shape[i].y - shape[i+1].y
+          if dxa == dxb and dya == dyb then
+            mydir = {x = dxa, y = dya}
+          else
+            return false
+          end
+        else
+          mydir = {x = shape[i - 1].x - tile.x, y = shape[i - 1].y - tile.y}
+        end
+        local dir = nil
+        local other_shape = building.pipes[id].shape
+        for j, _ in ipairs(other_shape) do
+          if j > 1 and j < #other_shape then
+            if other_shape[j].x == tile.x and other_shape[j].y == tile.y then
+              local dxa = other_shape[j-1].x - other_shape[j].x
+              local dya = other_shape[j-1].y - other_shape[j].y
+              local dxb = other_shape[j].x - other_shape[j+1].x
+              local dyb = other_shape[j].y - other_shape[j+1].y
+              if dxa == dxb and dya == dyb then
+                dir = {x = dxa, y = dya}
+              end
+            end
+          end
+        end
+        if dir == nil or dir.x * mydir.x + dir.y * mydir.y ~= 0 then
+          return false
+        end
       end
     end
   end
@@ -166,7 +206,8 @@ local key = function(point)
 end
 
 M.route_pipe = function(building, from_room, from, to, to_room)
-  if M.get_tile(building, to.x, to.y) ~= nil then
+  local id = M.get_tile(building, to.x, to.y)
+  if id ~= nil and not M.is_pipe(building, id) then
     return nil
   end
 
@@ -199,7 +240,11 @@ M.route_pipe = function(building, from_room, from, to, to_room)
       if to_room ~= nil then
         result[#result+1] = to_room
       end
-      return result
+      if M.pipe_allowed(building, result) then
+        return result
+      else
+        return nil
+      end
     end
 
     visit({
@@ -221,6 +266,56 @@ M.route_pipe = function(building, from_room, from, to, to_room)
   end
   return nil
 end
+
+local add_pipe = function(building, id, tiles)
+  local new_grid = {}
+  local rows = {}
+  local crossings = nil
+  for y in pairs(building.grid) do
+    rows[y] = true
+  end
+  for  _, pos in ipairs(tiles) do
+    rows[pos.y] = true
+  end
+  for y in pairs(rows) do
+    local local_update
+    if building.grid[y] == nil then
+      local_update = {}
+    else
+      local_update = util.clone(grid[y])
+    end
+    local has_local_update = false
+    for _, pos in ipairs(tiles) do
+      if pos.y == y then
+        if M.is_pipe(building, local_update[pos.x]) then
+          local crossing = util.next_id()
+          if crossings == nil then
+            crossings = util.clone(building.crossings)
+          end
+          if math.random(2) == 1 then
+            crossings[crossing] = {top = id, bottom = local_update[pos.x]}
+          else
+            crossings[crossing] = {top = local_update[pos.x], bottom = id}
+          end
+          local_update[pos.x] = crossing
+        else
+          local_update[pos.x] = id
+        end
+        has_local_update = true
+      end
+    end
+    if has_local_update then
+      new_grid[y] = local_update
+    else
+      new_grid[y] = building.grid[y]
+    end
+  end
+  if crossings == nil then
+    crosssings = building.crossings
+  end
+  return util.evolve(building, {crossings = crossings, grid = new_grid})
+end
+
 
 M.add_pipe = function(building, path)
   local id = util.next_id()

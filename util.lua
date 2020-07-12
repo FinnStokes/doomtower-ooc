@@ -1,5 +1,15 @@
 local M = {}
 
+M.clone = function(orig)
+  local new = {}
+  for k, v in pairs(orig) do
+    new[k] = v
+  end
+
+  return new
+end
+
+
 M.evolve = function(orig, update)
   local new = {}
   for k, v in pairs(orig) do
