@@ -135,9 +135,10 @@ end
 M.draw = function(state)
   love.graphics.push()
   love.graphics.replaceTransform(state.transform.transform)
+  love.graphics.setDefaultFilter('nearest', 'nearest')
   building.render(state.building)
   if #state.pipe_placer > 1 then
-    building.render_pipe(state.pipe_placer, true)
+    building.render_pipe(state.building, state.pipe_placer, true)
   end
   --love.graphics.circle("fill", 0.0, 80.0, 10.0)
   --love.graphics.circle("line", state.cursor.x, state.cursor.y, 5.0)

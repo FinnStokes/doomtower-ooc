@@ -3,6 +3,7 @@ input = require("input")
 
 function love.load()
   math.randomseed(os.time())
+  love.graphics.setBackgroundColor(0.5, 0.7, 0.9, 1.0)
   bindings = input.bindings()
   w, h = love.graphics.getPixelDimensions()
   state = game.new(w, h)

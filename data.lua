@@ -1,0 +1,15 @@
+local M = {}
+
+M.cache = {}
+
+M.image = function(name)
+  local filename = 'data/img/'..name..'.png'
+  local img = M.cache[filename]
+  if img == nil then
+    img = love.graphics.newImage(filename)
+    M.cache[filename] = img
+  end
+  return img
+end
+
+return M

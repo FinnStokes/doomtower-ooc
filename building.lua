@@ -1,4 +1,5 @@
 local util = require("util")
+local data = require("data")
 
 local M = {}
 
@@ -238,6 +239,9 @@ M.route_pipe = function(building, from_room, from, to, to_room)
     if current.pos.x == to.x and current.pos.y == to.y then
       local result = current.path
       if to_room ~= nil then
+        if to_room.x == from_room.x and to_room.y == from_room.y and to.x == from.x and to.y == from.y then
+          return nil
+        end
         result[#result+1] = to_room
       end
       if M.pipe_allowed(building, result) then
@@ -360,20 +364,41 @@ M.remove_pipe = function(building, id)
   })
 end
 
-M.render_pipe = function(tiles, ghost)
+local dir_lbl = function(x, y)
+  if x > 0 and y == 0 then
+    return "l"
+  elseif x < 0 and y == 0 then
+    return "r"
+  elseif x == 0 and y > 0 then
+    return "u"
+  elseif x == 0 and y < 0 then
+    return "d"
+  end
+end
+
+M.render_pipe = function(building, tiles, ghost)
+  local suffix = ""
+  if ghost then suffix = "-ghost" end
   for i, _ in ipairs(tiles) do
     if i > 1 then
-      x = math.min(tiles[i - 1].x, tiles[i].x) * M.TILE_SIZE + (M.TILE_SIZE / 2 - 4)
-      y = math.min(tiles[i - 1].y, tiles[i].y) * M.TILE_SIZE + (M.TILE_SIZE / 2 - 4)
-      width = 8
-      height = 8
-      if tiles[i - 1].x ~= tiles[i].x then
-        width = width + M.TILE_SIZE
+      local x = tiles[i].x * M.TILE_SIZE
+      local y = tiles[i].y * M.TILE_SIZE
+      local dirs = {l = "", r = "", u = "", d = ""}
+      if i < #tiles then
+        local dir = dir_lbl(tiles[i].x - tiles[i+1].x, tiles[i].y - tiles[i+1].y)
+        dirs[dir] = dir
+        dir = dir_lbl(tiles[i].x - tiles[i-1].x, tiles[i].y - tiles[i-1].y)
+        dirs[dir] = dir
+        local img = data.image("pipe-"..dirs.l..dirs.r..dirs.u..dirs.d..suffix)
+        love.graphics.draw(img, x, y)
+      elseif not M.is_room(building, M.get_tile(building, tiles[i].x, tiles[i].y)) then
+        local dir = dir_lbl(tiles[i].x - tiles[i-1].x, tiles[i].y - tiles[i-1].y)
+        dirs[dir] = dir
+        dir = dir_lbl(tiles[i-1].x - tiles[i].x, tiles[i-1].y - tiles[i].y)
+        dirs[dir] = dir
+        local img = data.image("pipe-"..dirs.l..dirs.r..dirs.u..dirs.d..suffix)
+        love.graphics.draw(img, x, y)
       end
-      if tiles[i - 1].y ~= tiles[i].y then
-        height = height + M.TILE_SIZE
-      end
-      love.graphics.rectangle("line", x, y, width, height)
     end
   end
 end
@@ -387,7 +412,7 @@ M.render = function(building)
     end
   end
   for _, p in pairs(building.pipes) do
-    M.render_pipe(p.shape)
+    M.render_pipe(building, p.shape)
   end
 end
 
