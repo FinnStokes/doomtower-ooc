@@ -1,0 +1,9 @@
+ - Remove random fire
+ - Implement scoring
+ - Implement win / lose screen
+ - Fix element icons
+ - Add extra rooms?
+ - Animate pipes
+ - Allow manual pipe routing
+ - Add background
+ - Balance!!
