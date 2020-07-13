@@ -8,7 +8,7 @@ M.rooms = {
   {
     shape = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 1}, {0, 2}, {3, 2}},
     img = data.image("life"),
-    action_rate = 0.5,
+    action_rate = 0.5/2,
     actions = {
       {consumes = {elements.death, elements.lightning}, produces = {elements.zombie}},
       {produces = {elements.death}, probability = 20},
@@ -17,7 +17,7 @@ M.rooms = {
   {
     shape = {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 0}, {3, 0}, {4, 0}, {2, 1}, {3, 1}, {4, 1}, {2, 2}, {3, 2}, {4, 2}},
     img = data.image("death-ray"),
-    action_rate = 0.2,
+    action_rate = 0.2/2,
     actions = {
       {consumes = {elements.shark}, produces = {elements.death}},
       {consumes = {elements.zombie}, produces = {elements.death}},
@@ -30,7 +30,7 @@ M.rooms = {
   {
     shape = {{1, 0}, {1, 1}, {1, 2}, {0, 3}, {1, 3}, {2, 3}, {0, 4}, {1, 4}, {2, 4}},
     img = data.image("weather-control"),
-    action_rate = 0.3,
+    action_rate = 0.3/2,
     actions = {
       {produces = {elements.lightning}}
     },
@@ -38,7 +38,7 @@ M.rooms = {
   {
     shape = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}},
     img = data.image("shark-tank"),
-    action_rate = 0.2,
+    action_rate = 0.2/2,
     actions = {
       {produces = {elements.shark}, probability = 50},
       {produces = {elements.water}},
@@ -172,7 +172,7 @@ M.new = function()
     produced = {},
   }
 
-  building.rooms[entrance] = {room=entrance_room, pos={x = 0, y = 0}, elements={elements.fire}} -- todo fixme
+  building.rooms[entrance] = {room=entrance_room, pos={x = 0, y = 0}, elements={}}
 
   building = M.add_room(building)
 
@@ -547,7 +547,8 @@ M.update = function(building, dt)
     pipes = updated_pipes,
   })
 
-  if util.integrated_prob(0.02, dt) then
+  if util.integrated_prob(0.1, dt) then
+      print("New room")
     new = M.add_room(new)
   end
 

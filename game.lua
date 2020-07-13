@@ -40,10 +40,8 @@ end
 
 M.update = function(state, dt)
   local t = state.transform
-  print(state.x_speed, state.y_speed)
   if state.y_speed ~= 0 or state.x_speed ~= 0 then
-    print(t.x + dt * 100 * state.x_speed, t.y + dt * 100 * state.y_speed)
-    t = transform(t.x - dt * 100 * state.x_speed, t.y - dt * 100 * state.y_speed, t.w, t.h)
+    t = transform(t.x - dt * 100 * state.x_speed, t.y + dt * 100 * state.y_speed, t.w, t.h)
   end
   return util.evolve(state, {
     building = building.update(state.building, dt),

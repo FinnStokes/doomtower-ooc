@@ -7,6 +7,7 @@ M.image = function(name)
   local img = M.cache[filename]
   if img == nil then
     img = love.graphics.newImage(filename)
+    img:setFilter('nearest', 'nearest')
     M.cache[filename] = img
   end
   return img
